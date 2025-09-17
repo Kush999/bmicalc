@@ -68,10 +68,10 @@ class BMICalculator {
     }
     
     resetInputs() {
-        // Reset all inputs to 0 on page load/refresh
-        this.weightInput.value = '0';
-        this.heightInput.value = '0';
-        this.inchesInput.value = '0';
+        // Reset all inputs to empty on page load/refresh
+        this.weightInput.value = '';
+        this.heightInput.value = '';
+        this.inchesInput.value = '';
         
         // Clear any existing errors
         this.clearError();
@@ -186,14 +186,15 @@ class BMICalculator {
         this.clearInputErrors();
         
         // Weight validation
-        if (isNaN(weight) || weight < 0) {
+        if (!this.weightInput.value.trim() || isNaN(weight) || weight <= 0) {
             isValid = false;
-            this.showInputError(this.weightInput, 'Weight must be a positive number');
-            errorMessage = 'Weight must be a positive number';
-        } else if (weight === 0) {
-            isValid = false;
-            this.showInputError(this.weightInput, 'Please enter your weight');
-            errorMessage = 'Please enter your weight';
+            if (!this.weightInput.value.trim()) {
+                this.showInputError(this.weightInput, 'Please enter your weight');
+                errorMessage = 'Please enter your weight';
+            } else {
+                this.showInputError(this.weightInput, 'Weight must be a positive number');
+                errorMessage = 'Weight must be a positive number';
+            }
         } else if (weight > 1000) {
             isValid = false;
             this.showInputError(this.weightInput, 'Weight cannot exceed 1000 kg/lbs');
@@ -202,14 +203,15 @@ class BMICalculator {
         
         // Height validation
         if (this.heightUnit.value === 'cm') {
-            if (isNaN(height) || height < 0) {
+            if (!this.heightInput.value.trim() || isNaN(height) || height <= 0) {
                 isValid = false;
-                this.showInputError(this.heightInput, 'Height must be a positive number');
-                errorMessage = 'Height must be a positive number';
-            } else if (height === 0) {
-                isValid = false;
-                this.showInputError(this.heightInput, 'Please enter your height');
-                errorMessage = 'Please enter your height';
+                if (!this.heightInput.value.trim()) {
+                    this.showInputError(this.heightInput, 'Please enter your height');
+                    errorMessage = 'Please enter your height';
+                } else {
+                    this.showInputError(this.heightInput, 'Height must be a positive number');
+                    errorMessage = 'Height must be a positive number';
+                }
             } else if (height < 50) {
                 isValid = false;
                 this.showInputError(this.heightInput, 'Height must be at least 50 cm');
@@ -220,14 +222,15 @@ class BMICalculator {
                 errorMessage = 'Height cannot exceed 300 cm';
             }
         } else {
-            if (isNaN(height) || height < 0) {
+            if (!this.heightInput.value.trim() || isNaN(height) || height <= 0) {
                 isValid = false;
-                this.showInputError(this.heightInput, 'Height must be a positive number');
-                errorMessage = 'Height must be a positive number';
-            } else if (height === 0) {
-                isValid = false;
-                this.showInputError(this.heightInput, 'Please enter your height');
-                errorMessage = 'Please enter your height';
+                if (!this.heightInput.value.trim()) {
+                    this.showInputError(this.heightInput, 'Please enter your height');
+                    errorMessage = 'Please enter your height';
+                } else {
+                    this.showInputError(this.heightInput, 'Height must be a positive number');
+                    errorMessage = 'Height must be a positive number';
+                }
             } else if (height < 1 || height > 10) {
                 isValid = false;
                 this.showInputError(this.heightInput, 'Height must be between 1 and 10 feet');
