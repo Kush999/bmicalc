@@ -7,12 +7,6 @@
       "use": "@vercel/static"
     }
   ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -86,12 +80,11 @@
     }
   ],
   "functions": {
-    "app/api/analytics.js": {
+    "api/analytics.js": {
       "runtime": "nodejs18.x"
     }
   },
   "env": {
     "VERCEL_SPEED_INSIGHTS": "1"
   },
-  "regions": ["iad1", "sfo1", "lhr1", "hnd1", "syd1"]
 }
