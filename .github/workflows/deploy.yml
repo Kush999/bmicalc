@@ -1,0 +1,344 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # Pre-deployment checks
+  pre-deploy-checks:
+    name: Pre-deployment Checks
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.check.outputs.should-deploy }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check if deployment should proceed
+        id: check
+        run: |
+          # Check if this is a main branch push or manual dispatch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+            echo "Deployment approved"
+          else
+            echo "should-deploy=false" >> $GITHUB_OUTPUT
+            echo "Deployment skipped - not main branch or manual dispatch"
+          fi
+
+      - name: Run final security check
+        if: steps.check.outputs.should-deploy == 'true'
+        run: |
+          echo "Running final security check..."
+          # Check for any last-minute security issues
+          if grep -r -i "password\|secret\|key\|token" . --exclude-dir=node_modules --exclude-dir=.git --exclude="*.md" | grep -v "// " | grep -v "console.log"; then
+            echo "❌ Security check failed: Potential secrets found"
+            exit 1
+          fi
+          echo "✅ Security check passed"
+
+  # Deploy vanilla HTML/JS to static hosting
+  deploy-vanilla:
+    name: Deploy Vanilla Project
+    runs-on: ubuntu-latest
+    needs: pre-deploy-checks
+    if: needs.pre-deploy-checks.outputs.should-deploy == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Validate HTML files
+        run: |
+          echo "Final validation of HTML files..."
+          for file in *.html; do
+            if [ -f "$file" ]; then
+              echo "Validating $file"
+              # Check for basic HTML structure
+              if ! grep -q "<!DOCTYPE html>" "$file"; then
+                echo "Error: $file missing DOCTYPE declaration"
+                exit 1
+              fi
+              if ! grep -q "<html" "$file"; then
+                echo "Error: $file missing html tag"
+                exit 1
+              fi
+              if ! grep -q "</html>" "$file"; then
+                echo "Error: $file missing closing html tag"
+                exit 1
+              fi
+            fi
+          done
+          echo "✅ HTML validation passed"
+
+      - name: Optimize assets
+        run: |
+          echo "Optimizing assets for production..."
+          # Minify CSS if not already minified
+          if [ -f "styles.css" ]; then
+            # Basic CSS optimization - remove comments and extra whitespace
+            sed 's/\/\*.*\*\///g' styles.css | tr -s ' ' | sed 's/^[[:space:]]*//' > styles.min.css
+            echo "CSS optimized"
+          fi
+          
+          # Check JavaScript for console statements
+          if [ -f "script.js" ]; then
+            if grep -q "console\.log" script.js; then
+              echo "Warning: console.log statements found - consider removing for production"
+            fi
+            echo "JavaScript validated"
+          fi
+
+      - name: Create deployment package
+        run: |
+          echo "Creating deployment package..."
+          mkdir -p deploy-vanilla
+          cp *.html deploy-vanilla/ 2>/dev/null || true
+          cp *.css deploy-vanilla/ 2>/dev/null || true
+          cp *.js deploy-vanilla/ 2>/dev/null || true
+          cp *.json deploy-vanilla/ 2>/dev/null || true
+          cp *.txt deploy-vanilla/ 2>/dev/null || true
+          cp *.xml deploy-vanilla/ 2>/dev/null || true
+          cp *.ico deploy-vanilla/ 2>/dev/null || true
+          cp manifest.json deploy-vanilla/ 2>/dev/null || true
+          cp sw.js deploy-vanilla/ 2>/dev/null || true
+          
+          # Create robots.txt if it doesn't exist
+          if [ ! -f "deploy-vanilla/robots.txt" ]; then
+            echo "User-agent: *" > deploy-vanilla/robots.txt
+            echo "Allow: /" >> deploy-vanilla/robots.txt
+          fi
+          
+          echo "Deployment package created:"
+          ls -la deploy-vanilla/
+
+      - name: Deploy to Vercel (if configured)
+        if: false  # Enable if you have Vercel configured
+        run: |
+          echo "Deploying to Vercel..."
+          # Add Vercel deployment commands here
+          # npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanilla-deployment
+          path: deploy-vanilla/
+          retention-days: 30
+
+  # Deploy Next.js application
+  deploy-nextjs:
+    name: Deploy Next.js Application
+    runs-on: ubuntu-latest
+    needs: pre-deploy-checks
+    if: needs.pre-deploy-checks.outputs.should-deploy == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'bmi-calc-nextjs/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm ci
+
+      - name: Run type check
+        working-directory: ./bmi-calc-nextjs
+        run: npm run type-check
+
+      - name: Run linting
+        working-directory: ./bmi-calc-nextjs
+        run: npm run lint
+
+      - name: Build Next.js application
+        working-directory: ./bmi-calc-nextjs
+        run: npm run build
+
+      - name: Test build
+        working-directory: ./bmi-calc-nextjs
+        run: |
+          echo "Testing Next.js build..."
+          npm start &
+          sleep 10
+          
+          # Test that the application starts correctly
+          if curl -f http://localhost:3000; then
+            echo "✅ Next.js application started successfully"
+          else
+            echo "❌ Next.js application failed to start"
+            exit 1
+          fi
+          
+          # Kill the server
+          pkill -f "next start" || true
+
+      - name: Deploy to Vercel
+        if: false  # Enable if you have Vercel configured
+        working-directory: ./bmi-calc-nextjs
+        run: |
+          echo "Deploying Next.js application to Vercel..."
+          # Add Vercel deployment commands here
+          # npx vercel --prod --token $VERCEL_TOKEN
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Setup Vercel Environment Variables
+        if: github.ref == 'refs/heads/main'
+        working-directory: ./bmi-calc-nextjs
+        run: |
+          echo "Setting up Vercel environment variables..."
+          # Create .env.local for Vercel deployment
+          cat > .env.local << EOF
+          NEXT_PUBLIC_GA_MEASUREMENT_ID=G-64YKRCPLT3
+          NEXT_PUBLIC_ADSENSE_CLIENT=ca-pub-8004585225313485
+          VERCEL_ANALYTICS=1
+          EOF
+          echo "✅ Environment variables configured"
+
+      - name: Deploy to Vercel (Production)
+        if: github.ref == 'refs/heads/main'
+        working-directory: ./bmi-calc-nextjs
+        run: |
+          echo "🚀 Deploying to Vercel Production..."
+          if [ -n "$VERCEL_TOKEN" ]; then
+            npm install -g vercel
+            vercel --prod --token $VERCEL_TOKEN --yes
+            echo "✅ Successfully deployed to Vercel"
+          else
+            echo "⚠️ VERCEL_TOKEN not set, skipping Vercel deployment"
+            echo "To enable Vercel deployment, add VERCEL_TOKEN to GitHub Secrets"
+          fi
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Upload Next.js build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-deployment
+          path: bmi-calc-nextjs/.next/
+          retention-days: 30
+
+  # Post-deployment verification
+  post-deploy-verification:
+    name: Post-deployment Verification
+    runs-on: ubuntu-latest
+    needs: [deploy-vanilla, deploy-nextjs]
+    if: always() && (needs.deploy-vanilla.result == 'success' || needs.deploy-nextjs.result == 'success')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-deployment'
+          merge-multiple: true
+
+      - name: Verify deployment artifacts
+        run: |
+          echo "Verifying deployment artifacts..."
+          
+          if [ -d "vanilla-deployment" ]; then
+            echo "✅ Vanilla deployment artifacts found"
+            ls -la vanilla-deployment/
+          fi
+          
+          if [ -d "nextjs-deployment" ]; then
+            echo "✅ Next.js deployment artifacts found"
+            ls -la nextjs-deployment/
+          fi
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests..."
+          
+          # Test vanilla HTML files
+          if [ -d "vanilla-deployment" ]; then
+            cd vanilla-deployment
+            python3 -m http.server 8000 &
+            sleep 5
+            
+            if curl -f http://localhost:8000; then
+              echo "✅ Vanilla application accessible"
+            else
+              echo "❌ Vanilla application not accessible"
+            fi
+            
+            pkill -f "python3 -m http.server" || true
+            cd ..
+          fi
+
+      - name: Generate deployment report
+        run: |
+          echo "# Deployment Report" > deployment-report.md
+          echo "Deployed on: $(date)" >> deployment-report.md
+          echo "Commit: ${{ github.sha }}" >> deployment-report.md
+          echo "Branch: ${{ github.ref_name }}" >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "## Deployment Status" >> deployment-report.md
+          echo "- Vanilla Project: ${{ needs.deploy-vanilla.result }}" >> deployment-report.md
+          echo "- Next.js Project: ${{ needs.deploy-nextjs.result }}" >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "## Next Steps" >> deployment-report.md
+          echo "1. Verify the application is working correctly in production" >> deployment-report.md
+          echo "2. Monitor application performance and errors" >> deployment-report.md
+          echo "3. Update DNS if necessary" >> deployment-report.md
+          
+          cat deployment-report.md
+
+      - name: Upload deployment report
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report
+          path: deployment-report.md
+          retention-days: 90
+
+  # Notify deployment status
+  notify-deployment:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-vanilla, deploy-nextjs, post-deploy-verification]
+    if: always()
+    steps:
+      - name: Notify deployment success
+        if: needs.deploy-vanilla.result == 'success' || needs.deploy-nextjs.result == 'success'
+        run: |
+          echo "🚀 Deployment completed successfully!"
+          echo "Vanilla project: ${{ needs.deploy-vanilla.result }}"
+          echo "Next.js project: ${{ needs.deploy-nextjs.result }}"
+
+      - name: Notify deployment failure
+        if: needs.deploy-vanilla.result == 'failure' || needs.deploy-nextjs.result == 'failure'
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Vanilla project: ${{ needs.deploy-vanilla.result }}"
+          echo "Next.js project: ${{ needs.deploy-nextjs.result }}"
+          exit 1

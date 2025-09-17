@@ -1,0 +1,218 @@
+# Workflow Configuration
+# This file contains shared configuration for all workflows
+
+# Common environment variables
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+  CACHE_VERSION: 'v1'
+
+# Common step configurations
+step_configs:
+  checkout:
+    uses: actions/checkout@v4
+    with:
+      fetch-depth: 0  # Full history for better analysis
+
+  setup_node:
+    uses: actions/setup-node@v4
+    with:
+      node-version: ${{ env.NODE_VERSION }}
+      cache: 'npm'
+
+  setup_python:
+    uses: actions/setup-python@v4
+    with:
+      python-version: ${{ env.PYTHON_VERSION }}
+
+# Common job configurations
+job_configs:
+  # Standard job for Node.js projects
+  node_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+  # Standard job for security checks
+  security_job:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+  # Standard job for deployment
+  deploy_job:
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [test, security-check]
+
+# Common workflow triggers
+triggers:
+  # Standard CI triggers
+  ci:
+    push:
+      branches: [ main, develop ]
+    pull_request:
+      branches: [ main, develop ]
+
+  # Security scan triggers
+  security:
+    push:
+      branches: [ main, develop ]
+    pull_request:
+      branches: [ main, develop ]
+    schedule:
+      - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+  # Deployment triggers
+  deploy:
+    push:
+      branches: [ main ]
+    workflow_dispatch:
+      inputs:
+        environment:
+          description: 'Environment to deploy to'
+          required: true
+          default: 'production'
+          type: choice
+          options:
+            - production
+            - staging
+
+# Common validation steps
+validation_steps:
+  # HTML validation
+  validate_html:
+    - name: Validate HTML files
+      run: |
+        echo "Validating HTML files..."
+        for file in *.html; do
+          if [ -f "$file" ]; then
+            echo "Checking $file"
+            if ! grep -q "<!DOCTYPE html>" "$file"; then
+              echo "Warning: $file missing DOCTYPE declaration"
+            fi
+            if ! grep -q "<html" "$file"; then
+              echo "Error: $file missing html tag"
+              exit 1
+            fi
+            if ! grep -q "</html>" "$file"; then
+              echo "Error: $file missing closing html tag"
+              exit 1
+            fi
+          fi
+        done
+
+  # CSS validation
+  validate_css:
+    - name: Validate CSS files
+      run: |
+        echo "Validating CSS files..."
+        if [ -f "styles.css" ]; then
+          if ! grep -q "{" styles.css || ! grep -q "}" styles.css; then
+            echo "Error: CSS file appears to be malformed"
+            exit 1
+          fi
+          echo "CSS validation passed"
+        fi
+
+  # JavaScript validation
+  validate_js:
+    - name: Validate JavaScript files
+      run: |
+        echo "Validating JavaScript files..."
+        if [ -f "script.js" ]; then
+          node -c script.js
+          echo "JavaScript syntax validation passed"
+        fi
+
+  # Next.js validation
+  validate_nextjs:
+    - name: Run ESLint
+      working-directory: ./bmi-calc-nextjs
+      run: npm run lint
+    - name: Run TypeScript type check
+      working-directory: ./bmi-calc-nextjs
+      run: npm run type-check
+    - name: Check code formatting
+      working-directory: ./bmi-calc-nextjs
+      run: npm run format:check
+    - name: Build Next.js application
+      working-directory: ./bmi-calc-nextjs
+      run: npm run build
+
+# Common security checks
+security_checks:
+  # Dependency audit
+  audit_dependencies:
+    - name: Audit root dependencies
+      run: npm audit --audit-level=moderate
+    - name: Audit Next.js dependencies
+      working-directory: ./bmi-calc-nextjs
+      run: npm audit --audit-level=moderate
+
+  # Secret scanning
+  scan_secrets:
+    - name: Check for hardcoded secrets
+      run: |
+        echo "Checking for potential secrets..."
+        if grep -r -i "password\|secret\|key\|token" . --exclude-dir=node_modules --exclude-dir=.git --exclude="*.md" | grep -v "// " | grep -v "console.log"; then
+          echo "Warning: Potential secrets found"
+        fi
+
+# Common performance checks
+performance_checks:
+  # Bundle size analysis
+  check_bundle_size:
+    - name: Check bundle size
+      run: |
+        echo "Checking bundle sizes..."
+        if [ -d "bmi-calc-nextjs/.next/static/chunks" ]; then
+          echo "Bundle sizes:"
+          find bmi-calc-nextjs/.next/static/chunks -name "*.js" -exec ls -lh {} \; | sort -k5 -hr | head -10
+        fi
+
+  # Image optimization
+  check_images:
+    - name: Check for large images
+      run: |
+        echo "Checking for large images..."
+        find . -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.gif" -o -name "*.svg" | while read file; do
+          size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null)
+          if [ "$size" -gt 1000000 ]; then
+            echo "Warning: Large image found: $file ($size bytes)"
+          fi
+        done
+
+# Common notification templates
+notifications:
+  success:
+    title: "✅ Workflow Completed Successfully"
+    message: |
+      All checks passed successfully!
+      - Build: ✅
+      - Tests: ✅
+      - Security: ✅
+      - Performance: ✅
+
+  failure:
+    title: "❌ Workflow Failed"
+    message: |
+      Some checks failed. Please review the logs and fix the issues.
+      - Build: ❌
+      - Tests: ❌
+      - Security: ❌
+      - Performance: ❌
+
+  warning:
+    title: "⚠️ Workflow Completed with Warnings"
+    message: |
+      Workflow completed but with some warnings.
+      Please review the warnings and consider addressing them.

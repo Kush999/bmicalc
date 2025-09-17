@@ -13,6 +13,35 @@ A beautiful, fast, and SEO-optimized BMI calculator web application designed to 
 - **Performance**: Fast loading with lazy loading and optimized assets
 - **Mobile First**: Fully responsive design that works on all devices
 
+## 🔄 CI/CD Pipeline
+
+This project includes a comprehensive GitHub Actions CI/CD pipeline to ensure code quality, security, and safe deployments:
+
+### Workflows
+- **CI Pipeline**: Main continuous integration with linting, testing, and building
+- **Security Scan**: Comprehensive security analysis including dependency audits and secret scanning
+- **Deploy to Production**: Automated deployment pipeline with pre and post-deployment checks
+- **Pull Request Validation**: Complete PR validation including code quality, security, and performance checks
+
+### Local Development
+Run the same checks locally before pushing:
+```bash
+# Run all CI checks
+./scripts/ci-local.sh
+
+# Run specific checks
+./scripts/ci-local.sh --vanilla    # Validate HTML/JS project
+./scripts/ci-local.sh --nextjs     # Validate Next.js project
+./scripts/ci-local.sh --security   # Run security checks
+./scripts/ci-local.sh --performance # Run performance checks
+```
+
+### Status Badges
+[![CI Pipeline](https://github.com/Kush999/bmicalc/workflows/CI%20Pipeline/badge.svg)](https://github.com/Kush999/bmicalc/actions)
+[![Security Scan](https://github.com/Kush999/bmicalc/workflows/Security%20Scan/badge.svg)](https://github.com/Kush999/bmicalc/actions)
+[![Deploy to Production](https://github.com/Kush999/bmicalc/workflows/Deploy%20to%20Production/badge.svg)](https://github.com/Kush999/bmicalc/actions)
+[![PR Validation](https://github.com/Kush999/bmicalc/workflows/Pull%20Request%20Validation/badge.svg)](https://github.com/Kush999/bmicalc/actions)
+
 ## 📁 Project Structure
 
 ```

@@ -1,0 +1,417 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # Validate PR changes
+  validate-changes:
+    name: Validate PR Changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          echo "Changed files in this PR:"
+          git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }}
+          
+          # Get list of changed files
+          git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} > changed_files.txt
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          cat changed_files.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Check for breaking changes
+        run: |
+          echo "Checking for potential breaking changes..."
+          
+          # Check if package.json files were modified
+          if grep -q "package.json" changed_files.txt; then
+            echo "⚠️ Package.json modified - check for breaking dependency changes"
+          fi
+          
+          # Check if major configuration files were modified
+          if grep -q "next.config.ts\|tsconfig.json\|tailwind.config" changed_files.txt; then
+            echo "⚠️ Configuration files modified - verify build still works"
+          fi
+          
+          # Check if HTML structure was modified
+          if grep -q "\.html$" changed_files.txt; then
+            echo "⚠️ HTML files modified - verify structure and accessibility"
+          fi
+          
+          # Check if CSS was modified
+          if grep -q "\.css$" changed_files.txt; then
+            echo "⚠️ CSS files modified - verify styling and responsiveness"
+          fi
+          
+          # Check if JavaScript was modified
+          if grep -q "\.js$" changed_files.txt; then
+            echo "⚠️ JavaScript files modified - verify functionality"
+          fi
+
+  # Code quality checks
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Next.js dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm ci
+
+      - name: Check code formatting
+        working-directory: ./bmi-calc-nextjs
+        run: npm run format:check
+
+      - name: Run ESLint
+        working-directory: ./bmi-calc-nextjs
+        run: npm run lint
+
+      - name: Run TypeScript type check
+        working-directory: ./bmi-calc-nextjs
+        run: npm run type-check
+
+      - name: Check for console statements
+        run: |
+          echo "Checking for console statements..."
+          if grep -r "console\." . --exclude-dir=node_modules --exclude-dir=.git --exclude="*.md"; then
+            echo "⚠️ Console statements found - consider removing for production"
+          else
+            echo "✅ No console statements found"
+          fi
+
+      - name: Check for TODO/FIXME comments
+        run: |
+          echo "Checking for TODO/FIXME comments..."
+          if grep -r -i "todo\|fixme\|hack\|temp" . --exclude-dir=node_modules --exclude-dir=.git --exclude="*.md"; then
+            echo "⚠️ TODO/FIXME comments found - consider addressing before merge"
+          else
+            echo "✅ No TODO/FIXME comments found"
+          fi
+
+  # Build validation
+  build-validation:
+    name: Build Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'bmi-calc-nextjs/package-lock.json'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Next.js dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm ci
+
+      - name: Build Next.js application
+        working-directory: ./bmi-calc-nextjs
+        run: npm run build
+
+      - name: Test build output
+        run: |
+          echo "Validating build output..."
+          if [ -d "bmi-calc-nextjs/.next" ]; then
+            echo "✅ Next.js build successful"
+            echo "Build size:"
+            du -sh bmi-calc-nextjs/.next/
+          else
+            echo "❌ Next.js build failed"
+            exit 1
+          fi
+
+      - name: Test vanilla HTML files
+        run: |
+          echo "Testing vanilla HTML files..."
+          for file in *.html; do
+            if [ -f "$file" ]; then
+              echo "Testing $file"
+              # Basic HTML validation
+              if ! grep -q "<!DOCTYPE html>" "$file"; then
+                echo "❌ $file missing DOCTYPE declaration"
+                exit 1
+              fi
+              if ! grep -q "<html" "$file"; then
+                echo "❌ $file missing html tag"
+                exit 1
+              fi
+              if ! grep -q "</html>" "$file"; then
+                echo "❌ $file missing closing html tag"
+                exit 1
+              fi
+            fi
+          done
+          echo "✅ HTML validation passed"
+
+  # Security checks for PR
+  security-check:
+    name: Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Next.js dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm ci
+
+      - name: Run security audit
+        run: |
+          echo "Running security audit..."
+          npm audit --audit-level=moderate || true
+          cd bmi-calc-nextjs && npm audit --audit-level=moderate || true
+
+      - name: Check for secrets
+        run: |
+          echo "Checking for potential secrets..."
+          # Check for common secret patterns
+          if grep -r -i "api[_-]?key\|secret[_-]?key\|password\|token" . --exclude-dir=node_modules --exclude-dir=.git --exclude="*.md" | grep -v "// " | grep -v "console.log" | grep -v "password.*input"; then
+            echo "❌ Potential secrets found in code"
+            exit 1
+          else
+            echo "✅ No secrets found"
+          fi
+
+      - name: Check for dangerous functions
+        run: |
+          echo "Checking for potentially dangerous functions..."
+          # Check for eval, innerHTML, etc.
+          if grep -r -i "eval\|innerHTML\|outerHTML\|document\.write" . --exclude-dir=node_modules --exclude-dir=.git --exclude="*.md" | grep -v "// "; then
+            echo "⚠️ Potentially dangerous functions found - review for security implications"
+          else
+            echo "✅ No dangerous functions found"
+          fi
+
+  # Performance checks
+  performance-check:
+    name: Performance Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Next.js dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm ci
+
+      - name: Build Next.js application
+        working-directory: ./bmi-calc-nextjs
+        run: npm run build
+
+      - name: Check bundle size
+        run: |
+          echo "Checking bundle size..."
+          if [ -d "bmi-calc-nextjs/.next/static/chunks" ]; then
+            echo "Bundle sizes:"
+            find bmi-calc-nextjs/.next/static/chunks -name "*.js" -exec ls -lh {} \; | sort -k5 -hr | head -10
+            
+            # Check for unusually large bundles
+            large_files=$(find bmi-calc-nextjs/.next/static/chunks -name "*.js" -size +500k)
+            if [ -n "$large_files" ]; then
+              echo "⚠️ Large bundle files found:"
+              echo "$large_files"
+            else
+              echo "✅ Bundle sizes look reasonable"
+            fi
+          fi
+
+      - name: Check for large images
+        run: |
+          echo "Checking for large images..."
+          large_images=$(find . -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.gif" -o -name "*.svg" | xargs ls -lh | awk '$5 > "1M" {print $0}')
+          if [ -n "$large_images" ]; then
+            echo "⚠️ Large images found:"
+            echo "$large_images"
+          else
+            echo "✅ No large images found"
+          fi
+
+  # Accessibility checks
+  accessibility-check:
+    name: Accessibility Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Next.js dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm ci
+
+      - name: Build Next.js application
+        working-directory: ./bmi-calc-nextjs
+        run: npm run build
+
+      - name: Start Next.js server
+        working-directory: ./bmi-calc-nextjs
+        run: |
+          npm start &
+          sleep 10
+
+      - name: Basic accessibility checks
+        run: |
+          echo "Running basic accessibility checks..."
+          
+          # Check for alt attributes on images
+          if grep -r "<img" . --include="*.html" --include="*.tsx" --include="*.jsx" | grep -v 'alt='; then
+            echo "⚠️ Images without alt attributes found"
+          else
+            echo "✅ All images have alt attributes"
+          fi
+          
+          # Check for proper heading structure
+          if grep -r "<h[1-6]" . --include="*.html" --include="*.tsx" --include="*.jsx"; then
+            echo "✅ Heading tags found"
+          else
+            echo "⚠️ No heading tags found - consider adding proper heading structure"
+          fi
+          
+          # Check for form labels
+          if grep -r "<input\|<select\|<textarea" . --include="*.html" --include="*.tsx" --include="*.jsx" | grep -v 'aria-label\|<label'; then
+            echo "⚠️ Form elements without labels found"
+          else
+            echo "✅ Form elements have proper labels"
+          fi
+
+      - name: Test with axe-core (if available)
+        run: |
+          echo "Testing with axe-core..."
+          # This would require installing axe-core and running it
+          # For now, we'll just check if the page loads
+          if curl -f http://localhost:3000; then
+            echo "✅ Page loads successfully"
+          else
+            echo "❌ Page failed to load"
+            exit 1
+          fi
+
+  # Generate PR report
+  pr-report:
+    name: Generate PR Report
+    runs-on: ubuntu-latest
+    needs: [validate-changes, code-quality, build-validation, security-check, performance-check, accessibility-check]
+    if: always()
+    steps:
+      - name: Generate PR validation report
+        run: |
+          echo "# Pull Request Validation Report" > pr-report.md
+          echo "PR: #${{ github.event.pull_request.number }}" >> pr-report.md
+          echo "Branch: ${{ github.head_ref }}" >> pr-report.md
+          echo "Target: ${{ github.base_ref }}" >> pr-report.md
+          echo "Generated: $(date)" >> pr-report.md
+          echo "" >> pr-report.md
+          echo "## Validation Results" >> pr-report.md
+          echo "- Change Validation: ${{ needs.validate-changes.result }}" >> pr-report.md
+          echo "- Code Quality: ${{ needs.code-quality.result }}" >> pr-report.md
+          echo "- Build Validation: ${{ needs.build-validation.result }}" >> pr-report.md
+          echo "- Security Check: ${{ needs.security-check.result }}" >> pr-report.md
+          echo "- Performance Check: ${{ needs.performance-check.result }}" >> pr-report.md
+          echo "- Accessibility Check: ${{ needs.accessibility-check.result }}" >> pr-report.md
+          echo "" >> pr-report.md
+          echo "## Summary" >> pr-report.md
+          
+          # Count successful checks
+          success_count=0
+          total_count=6
+          
+          if [ "${{ needs.validate-changes.result }}" = "success" ]; then
+            success_count=$((success_count + 1))
+          fi
+          if [ "${{ needs.code-quality.result }}" = "success" ]; then
+            success_count=$((success_count + 1))
+          fi
+          if [ "${{ needs.build-validation.result }}" = "success" ]; then
+            success_count=$((success_count + 1))
+          fi
+          if [ "${{ needs.security-check.result }}" = "success" ]; then
+            success_count=$((success_count + 1))
+          fi
+          if [ "${{ needs.performance-check.result }}" = "success" ]; then
+            success_count=$((success_count + 1))
+          fi
+          if [ "${{ needs.accessibility-check.result }}" = "success" ]; then
+            success_count=$((success_count + 1))
+          fi
+          
+          echo "Passed: $success_count/$total_count checks" >> pr-report.md
+          
+          if [ $success_count -eq $total_count ]; then
+            echo "Status: ✅ All checks passed - Ready to merge!" >> pr-report.md
+          else
+            echo "Status: ⚠️ Some checks failed - Please review and fix issues" >> pr-report.md
+          fi
+          
+          cat pr-report.md
+
+      - name: Comment PR with report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('pr-report.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+
+      - name: Upload PR report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-validation-report
+          path: pr-report.md
+          retention-days: 30

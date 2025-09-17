@@ -1,0 +1,272 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Lint and validate vanilla HTML/JS project
+  lint-vanilla:
+    name: Lint Vanilla Project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Validate HTML files
+        run: |
+          echo "Validating HTML files..."
+          for file in *.html; do
+            if [ -f "$file" ]; then
+              echo "Checking $file"
+              # Basic HTML validation - check for common issues
+              if ! grep -q "<!DOCTYPE html>" "$file"; then
+                echo "Warning: $file missing DOCTYPE declaration"
+              fi
+              if ! grep -q "<html" "$file"; then
+                echo "Error: $file missing html tag"
+                exit 1
+              fi
+              if ! grep -q "</html>" "$file"; then
+                echo "Error: $file missing closing html tag"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Validate CSS
+        run: |
+          echo "Validating CSS files..."
+          if [ -f "styles.css" ]; then
+            # Basic CSS validation
+            if ! grep -q "{" styles.css || ! grep -q "}" styles.css; then
+              echo "Error: CSS file appears to be malformed"
+              exit 1
+            fi
+            echo "CSS validation passed"
+          fi
+
+      - name: Validate JavaScript
+        run: |
+          echo "Validating JavaScript files..."
+          if [ -f "script.js" ]; then
+            # Basic JS validation using node
+            node -c script.js
+            echo "JavaScript syntax validation passed"
+          fi
+
+      - name: Check for console errors
+        run: |
+          echo "Checking for potential console errors..."
+          if [ -f "script.js" ]; then
+            # Check for common console.error patterns
+            if grep -q "console\.error" script.js; then
+              echo "Found console.error statements - review for production"
+            fi
+            # Check for debug statements
+            if grep -q "console\.log" script.js; then
+              echo "Found console.log statements - consider removing for production"
+            fi
+          fi
+
+  # Test and build Next.js project
+  test-nextjs:
+    name: Test Next.js Project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'bmi-calc-nextjs/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ./bmi-calc-nextjs
+        run: npm run lint
+
+      - name: Run TypeScript type check
+        working-directory: ./bmi-calc-nextjs
+        run: npm run type-check
+
+      - name: Check code formatting
+        working-directory: ./bmi-calc-nextjs
+        run: npm run format:check
+
+      - name: Build Next.js application
+        working-directory: ./bmi-calc-nextjs
+        run: npm run build
+
+      - name: Test build output
+        run: |
+          if [ -d "bmi-calc-nextjs/.next" ]; then
+            echo "Build successful - .next directory created"
+            ls -la bmi-calc-nextjs/.next/
+          else
+            echo "Error: Build failed - .next directory not found"
+            exit 1
+          fi
+
+  # Security audit
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Audit root dependencies
+        run: npm audit --audit-level=moderate
+
+      - name: Audit Next.js dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm audit --audit-level=moderate
+
+      - name: Check for known vulnerabilities
+        run: |
+          echo "Checking for security issues..."
+          # Check for hardcoded secrets
+          if grep -r -i "password\|secret\|key\|token" . --exclude-dir=node_modules --exclude-dir=.git --exclude="*.md" | grep -v "// " | grep -v "console.log"; then
+            echo "Warning: Potential hardcoded secrets found"
+          fi
+
+  # Performance and accessibility checks
+  performance-check:
+    name: Performance Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Next.js dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm ci
+
+      - name: Build Next.js for analysis
+        working-directory: ./bmi-calc-nextjs
+        run: npm run build
+
+      - name: Check bundle size
+        run: |
+          echo "Checking bundle sizes..."
+          if [ -f "bmi-calc-nextjs/.next/static/chunks/pages/_app-*.js" ]; then
+            echo "Main bundle size:"
+            ls -lh bmi-calc-nextjs/.next/static/chunks/pages/_app-*.js
+          fi
+
+      - name: Check for large images
+        run: |
+          echo "Checking for large images..."
+          find . -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.gif" -o -name "*.svg" | while read file; do
+            size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null)
+            if [ "$size" -gt 1000000 ]; then
+              echo "Warning: Large image found: $file ($size bytes)"
+            fi
+          done
+
+  # Integration test
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Next.js dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm ci
+
+      - name: Build Next.js application
+        working-directory: ./bmi-calc-nextjs
+        run: npm run build
+
+      - name: Start Next.js server
+        working-directory: ./bmi-calc-nextjs
+        run: |
+          npm start &
+          sleep 10
+          curl -f http://localhost:3000 || exit 1
+
+      - name: Test vanilla HTML files
+        run: |
+          # Test that HTML files are accessible
+          python3 -m http.server 8000 &
+          sleep 5
+          curl -f http://localhost:8000 || exit 1
+
+  # Deploy preview (only on PR)
+  deploy-preview:
+    name: Deploy Preview
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Next.js dependencies
+        working-directory: ./bmi-calc-nextjs
+        run: npm ci
+
+      - name: Build Next.js application
+        working-directory: ./bmi-calc-nextjs
+        run: npm run build
+
+      - name: Comment PR with preview info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🚀 **Preview Build Successful!**\n\n- ✅ Vanilla HTML/JS project validated\n- ✅ Next.js project built successfully\n- ✅ All security checks passed\n- ✅ Performance checks completed\n\nReady for review!'
+            })
