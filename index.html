@@ -121,6 +121,25 @@
     
     <!-- Google Search Console Verification -->
     <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE">
+    
+    <!-- Vercel Speed Insights -->
+    <script>
+        // Vercel Speed Insights - Performance monitoring
+        (function() {
+            var script = document.createElement('script');
+            script.src = 'https://unpkg.com/@vercel/speed-insights@1.2.0/dist/index.js';
+            script.async = true;
+            script.onload = function() {
+                if (window.speedInsights) {
+                    window.speedInsights.init({
+                        // Optional: Add your Vercel project ID for more detailed analytics
+                        // projectId: 'your-vercel-project-id'
+                    });
+                }
+            };
+            document.head.appendChild(script);
+        })();
+    </script>
 </head>
 <body>
     <!-- Header -->

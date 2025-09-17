@@ -1,0 +1,40 @@
+{
+  "name": "bmi-calc",
+  "version": "1.0.0",
+  "description": "A beautiful, fast, and SEO-optimized BMI calculator web application designed to rank #1 on Google for BMI calculator searches.",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "serve": "npx serve .",
+    "dev": "npx serve . -l 3000",
+    "test": "echo \"No tests specified\" && exit 0",
+    "build": "echo \"No build process needed\" && exit 0",
+    "deploy": "echo \"Add your deployment command here\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kush999/bmicalc.git"
+  },
+  "keywords": [
+    "bmi",
+    "calculator",
+    "health",
+    "fitness",
+    "weight",
+    "seo",
+    "vercel",
+    "speed-insights"
+  ],
+  "author": "BMI Calc Team",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Kush999/bmicalc/issues"
+  },
+  "homepage": "https://bmicalc.fit",
+  "devDependencies": {
+    "serve": "^14.2.0"
+  },
+  "dependencies": {
+    "@vercel/speed-insights": "^1.2.0"
+  }
+}

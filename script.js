@@ -17,6 +17,7 @@ class BMICalculator {
     init() {
         this.attachEventListeners();
         this.setupAnalytics();
+        this.trackPageView();
     }
     
     attachEventListeners() {
@@ -373,11 +374,51 @@ class BMICalculator {
             });
         }
         
+        // Vercel Speed Insights tracking
+        this.trackAnalytics('bmi_calculation', {
+            bmi: result.bmi.toFixed(1),
+            category: result.category,
+            weight: result.weight,
+            height: result.height,
+            weight_unit: this.weightUnit.value,
+            height_unit: this.heightUnit.value
+        });
+        
         // Console log for debugging
         console.log('BMI Calculation:', {
             bmi: result.bmi.toFixed(1),
             category: result.category,
             timestamp: new Date().toISOString()
+        });
+    }
+    
+    trackAnalytics(event, data) {
+        // Send analytics data to our API endpoint
+        if (typeof fetch !== 'undefined') {
+            fetch('/api/analytics', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    event: event,
+                    data: data,
+                    timestamp: new Date().toISOString(),
+                    url: window.location.href,
+                    referrer: document.referrer
+                })
+            }).catch(error => {
+                console.log('Analytics tracking error:', error);
+            });
+        }
+    }
+    
+    trackPageView() {
+        // Track page view
+        this.trackAnalytics('page_view', {
+            page: window.location.pathname,
+            title: document.title,
+            referrer: document.referrer
         });
     }
     
