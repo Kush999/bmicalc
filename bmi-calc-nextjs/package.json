@@ -1,0 +1,68 @@
+{
+  "name": "bmi-calc-nextjs",
+  "version": "1.0.0",
+  "description": "A modern BMI calculator built with Next.js and shadcn/ui",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "@radix-ui/react-accordion": "^1.1.2",
+    "@radix-ui/react-alert-dialog": "^1.0.5",
+    "@radix-ui/react-label": "^2.0.2",
+    "@radix-ui/react-navigation-menu": "^1.1.4",
+    "@radix-ui/react-progress": "^1.0.3",
+    "@radix-ui/react-select": "^2.0.0",
+    "@radix-ui/react-separator": "^1.0.3",
+    "@radix-ui/react-sheet": "^1.0.4",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@radix-ui/react-tabs": "^1.0.4",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.400.0",
+    "tailwind-merge": "^2.5.4",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^15.0.0",
+    "postcss": "^8.4.38",
+    "prettier": "^3.3.0",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.0"
+  },
+  "keywords": [
+    "bmi",
+    "calculator",
+    "health",
+    "nextjs",
+    "react",
+    "typescript",
+    "tailwindcss",
+    "shadcn",
+    "medical",
+    "fitness",
+    "weight",
+    "height",
+    "body-mass-index"
+  ],
+  "author": "BMI Calc Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kush999/bmicalc.git"
+  },
+  "homepage": "https://bmicalc.fit"
+}
