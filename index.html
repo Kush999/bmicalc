@@ -123,43 +123,38 @@
     <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE">
     
     <!-- Vercel Speed Insights -->
-    <script>
+    <script type="module">
         // Vercel Speed Insights - Performance monitoring
-        (function() {
-            // Check if we're in a Vercel environment
-            if (typeof window !== 'undefined' && (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('bmicalc.fit'))) {
-                var script = document.createElement('script');
-                script.src = 'https://unpkg.com/@vercel/speed-insights@1.2.0/dist/index.js';
-                script.async = true;
-                script.onload = function() {
-                    if (window.speedInsights) {
-                        window.speedInsights.init({
-                            // Enable automatic data collection
-                            enableAuto: true,
-                            // Optional: Add your Vercel project ID for more detailed analytics
-                            // projectId: 'your-vercel-project-id'
-                        });
-                        console.log('Vercel Speed Insights initialized');
-                    }
-                };
-                script.onerror = function() {
-                    console.log('Failed to load Vercel Speed Insights');
-                };
-                document.head.appendChild(script);
-            }
-        })();
-    </script>
-    
-    <!-- Alternative Vercel Speed Insights Implementation -->
-    <script>
-        // Fallback implementation using the official Vercel method
-        if (typeof window !== 'undefined') {
+        // Using the correct import method as per Vercel documentation
+        try {
             import('https://unpkg.com/@vercel/speed-insights@1.2.0/dist/index.js').then(({ init }) => {
                 init();
-                console.log('Vercel Speed Insights loaded via import');
-            }).catch(err => {
-                console.log('Speed Insights import failed:', err);
+                console.log('Vercel Speed Insights initialized successfully');
+            }).catch(error => {
+                console.error('Speed Insights import failed:', error);
+                // Fallback to script tag method
+                loadSpeedInsightsFallback();
             });
+        } catch (error) {
+            console.error('Speed Insights module error:', error);
+            // Fallback to script tag method
+            loadSpeedInsightsFallback();
+        }
+        
+        function loadSpeedInsightsFallback() {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@vercel/speed-insights@1.2.0/dist/index.js';
+            script.async = true;
+            script.onload = function() {
+                if (window.speedInsights && window.speedInsights.init) {
+                    window.speedInsights.init();
+                    console.log('Vercel Speed Insights loaded via fallback method');
+                }
+            };
+            script.onerror = function() {
+                console.error('Failed to load Vercel Speed Insights via fallback');
+            };
+            document.head.appendChild(script);
         }
     </script>
 </head>
