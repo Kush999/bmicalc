@@ -396,17 +396,22 @@ body {
 .ad-container.ad-top {
     min-height: 90px;
     max-height: 250px;
+    width: 100%;
+    min-width: 320px;
 }
 
 .ad-container.ad-sidebar {
     min-height: 250px;
     max-height: 600px;
     width: 300px;
+    min-width: 300px;
 }
 
 .ad-container.ad-bottom {
     min-height: 90px;
     max-height: 250px;
+    width: 100%;
+    min-width: 320px;
 }
 
 .ad-top {

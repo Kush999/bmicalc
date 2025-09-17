@@ -657,25 +657,35 @@ class BMICalculator {
     }
     
     setupAdSenseErrorHandling() {
-        // Override adsbygoogle push to handle errors
-        const originalPush = window.adsbygoogle?.push;
-        if (originalPush) {
-            window.adsbygoogle.push = function(ad) {
-                try {
-                    return originalPush.call(this, ad);
-                } catch (error) {
-                    console.log('AdSense error handled:', error.message);
-                    // Hide ad containers that fail to load
-                    const adContainers = document.querySelectorAll('.ad-container');
-                    adContainers.forEach(container => {
-                        const adElement = container.querySelector('.adsbygoogle');
-                        if (adElement && !adElement.innerHTML.trim()) {
-                            container.style.display = 'none';
-                        }
-                    });
-                }
-            };
+        // Wait for DOM to be fully loaded before initializing ads
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.initializeAdSense();
+            });
+        } else {
+            this.initializeAdSense();
         }
+    }
+    
+    initializeAdSense() {
+        // Wait a bit more to ensure containers are rendered
+        setTimeout(() => {
+            try {
+                // Initialize all AdSense ads
+                const adElements = document.querySelectorAll('.adsbygoogle');
+                adElements.forEach(adElement => {
+                    // Ensure the ad element has proper dimensions
+                    const rect = adElement.getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) {
+                        (adsbygoogle = window.adsbygoogle || []).push({});
+                    } else {
+                        console.log('AdSense: Skipping ad with no dimensions');
+                    }
+                });
+            } catch (error) {
+                console.log('AdSense initialization error:', error.message);
+            }
+        }, 100);
     }
 }
 
