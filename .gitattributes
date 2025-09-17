@@ -1,0 +1,54 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Force LF line endings for text files
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.xml text eol=lf
+*.txt text eol=lf
+
+# Force CRLF line endings for Windows batch files
+*.bat text eol=crlf
+
+# Denote all files that are truly binary and should not be modified
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+*.zip binary
+*.tar.gz binary
+*.rar binary
+
+# Mark files as generated so they don't show up in diffs
+*.min.js linguist-generated=true
+*.min.css linguist-generated=true
+dist/* linguist-generated=true
+build/* linguist-generated=true
+
+# Mark documentation files
+README.md linguist-documentation
+*.md linguist-documentation
+
+# Mark configuration files
+.gitignore linguist-vendored
+.gitattributes linguist-vendored
+.editorconfig linguist-vendored
+
+# Mark as vendored (third-party) files
+node_modules/* linguist-vendored
+vendor/* linguist-vendored
+
+# Mark as generated files
+*.log linguist-generated
+coverage/* linguist-generated
+.nyc_output/* linguist-generated
