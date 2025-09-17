@@ -65,9 +65,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Validate HTML files
         run: |
@@ -164,11 +166,11 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: 'bmi-calc-nextjs/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
 
       - name: Install dependencies
         working-directory: ./bmi-calc-nextjs
-        run: npm ci
+        run: npm install
 
       - name: Run type check
         working-directory: ./bmi-calc-nextjs
