@@ -66,24 +66,69 @@ class BMICalculator {
         const inches = this.heightUnit.value === 'ft' ? parseFloat(this.inchesInput.value) || 0 : 0;
         
         let isValid = true;
+        let errorMessage = '';
+        
+        // Clear previous error styling
+        this.clearInputErrors();
         
         // Weight validation
-        if (!weight || weight <= 0 || weight > 1000) {
+        if (isNaN(weight) || weight <= 0) {
             isValid = false;
+            this.showInputError(this.weightInput, 'Weight must be a positive number');
+            errorMessage = 'Weight must be a positive number';
+        } else if (weight > 1000) {
+            isValid = false;
+            this.showInputError(this.weightInput, 'Weight cannot exceed 1000 kg/lbs');
+            errorMessage = 'Weight cannot exceed 1000 kg/lbs';
         }
         
         // Height validation
         if (this.heightUnit.value === 'cm') {
-            if (!height || height < 50 || height > 300) {
+            if (isNaN(height) || height <= 0) {
                 isValid = false;
+                this.showInputError(this.heightInput, 'Height must be a positive number');
+                errorMessage = 'Height must be a positive number';
+            } else if (height < 50) {
+                isValid = false;
+                this.showInputError(this.heightInput, 'Height must be at least 50 cm');
+                errorMessage = 'Height must be at least 50 cm';
+            } else if (height > 300) {
+                isValid = false;
+                this.showInputError(this.heightInput, 'Height cannot exceed 300 cm');
+                errorMessage = 'Height cannot exceed 300 cm';
             }
         } else {
-            if (!height || height < 1 || height > 10 || inches < 0 || inches > 11) {
+            if (isNaN(height) || height <= 0) {
                 isValid = false;
+                this.showInputError(this.heightInput, 'Height must be a positive number');
+                errorMessage = 'Height must be a positive number';
+            } else if (height < 1 || height > 10) {
+                isValid = false;
+                this.showInputError(this.heightInput, 'Height must be between 1 and 10 feet');
+                errorMessage = 'Height must be between 1 and 10 feet';
+            }
+            
+            if (this.heightUnit.value === 'ft') {
+                if (isNaN(inches) || inches < 0) {
+                    isValid = false;
+                    this.showInputError(this.inchesInput, 'Inches must be 0 or greater');
+                    errorMessage = 'Inches must be 0 or greater';
+                } else if (inches > 11) {
+                    isValid = false;
+                    this.showInputError(this.inchesInput, 'Inches cannot exceed 11');
+                    errorMessage = 'Inches cannot exceed 11';
+                }
             }
         }
         
         this.calculateBtn.disabled = !isValid;
+        
+        // Show error message if validation fails
+        if (!isValid && errorMessage) {
+            this.showError(errorMessage);
+        } else {
+            this.clearError();
+        }
         
         return isValid;
     }
@@ -353,6 +398,53 @@ class BMICalculator {
                 errorDiv.remove();
             }
         }, 5000);
+    }
+    
+    clearError() {
+        const errorDiv = this.form.querySelector('.error-message');
+        if (errorDiv) {
+            errorDiv.remove();
+        }
+    }
+    
+    showInputError(input, message) {
+        // Remove existing error styling
+        input.classList.remove('error');
+        
+        // Add error styling
+        input.classList.add('error');
+        input.style.borderColor = '#cc0000';
+        input.style.backgroundColor = '#ffe6e6';
+        
+        // Add error message tooltip
+        let tooltip = input.parentNode.querySelector('.input-error-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.className = 'input-error-tooltip';
+            tooltip.style.cssText = `
+                color: #cc0000;
+                font-size: 0.875rem;
+                margin-top: 0.25rem;
+                animation: fadeIn 0.3s ease;
+            `;
+            input.parentNode.appendChild(tooltip);
+        }
+        tooltip.textContent = message;
+    }
+    
+    clearInputErrors() {
+        // Clear error styling from all inputs
+        [this.weightInput, this.heightInput, this.inchesInput].forEach(input => {
+            input.classList.remove('error');
+            input.style.borderColor = '';
+            input.style.backgroundColor = '';
+            
+            // Remove tooltips
+            const tooltip = input.parentNode.querySelector('.input-error-tooltip');
+            if (tooltip) {
+                tooltip.remove();
+            }
+        });
     }
     
     trackCalculation(result) {

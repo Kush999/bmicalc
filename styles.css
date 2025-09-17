@@ -193,6 +193,27 @@ body {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+/* Input Error States */
+.input-wrapper input.error,
+.height-inches input.error {
+    border-color: #cc0000 !important;
+    background-color: #ffe6e6 !important;
+    box-shadow: 0 0 0 3px rgba(204, 0, 0, 0.1) !important;
+}
+
+.input-wrapper input.error:focus,
+.height-inches input.error:focus {
+    border-color: #cc0000 !important;
+    box-shadow: 0 0 0 3px rgba(204, 0, 0, 0.2) !important;
+}
+
+.input-error-tooltip {
+    color: #cc0000;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    animation: fadeIn 0.3s ease;
+}
+
 .unit-select {
     padding: 0.875rem 1rem;
     border: 2px solid var(--border-color);
