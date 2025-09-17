@@ -651,6 +651,31 @@ class BMICalculator {
                 page_location: window.location.href
             });
         }
+        
+        // Handle AdSense errors gracefully
+        this.setupAdSenseErrorHandling();
+    }
+    
+    setupAdSenseErrorHandling() {
+        // Override adsbygoogle push to handle errors
+        const originalPush = window.adsbygoogle?.push;
+        if (originalPush) {
+            window.adsbygoogle.push = function(ad) {
+                try {
+                    return originalPush.call(this, ad);
+                } catch (error) {
+                    console.log('AdSense error handled:', error.message);
+                    // Hide ad containers that fail to load
+                    const adContainers = document.querySelectorAll('.ad-container');
+                    adContainers.forEach(container => {
+                        const adElement = container.querySelector('.adsbygoogle');
+                        if (adElement && !adElement.innerHTML.trim()) {
+                            container.style.display = 'none';
+                        }
+                    });
+                }
+            };
+        }
     }
 }
 
