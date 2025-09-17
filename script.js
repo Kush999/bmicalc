@@ -15,6 +15,7 @@ class BMICalculator {
     }
     
     init() {
+        this.resetInputs();
         this.attachEventListeners();
         this.setupAnalytics();
         this.trackPageView();
@@ -31,6 +32,12 @@ class BMICalculator {
         this.weightInput.addEventListener('input', () => this.validateInputs());
         this.heightInput.addEventListener('input', () => this.validateInputs());
         this.inchesInput.addEventListener('input', () => this.validateInputs());
+        
+        // Prevent negative sign input
+        [this.weightInput, this.heightInput, this.inchesInput].forEach(input => {
+            input.addEventListener('keydown', (e) => this.preventNegativeInput(e));
+            input.addEventListener('paste', (e) => this.handlePaste(e));
+        });
         
         // Enter key support for quick calculation
         [this.weightInput, this.heightInput, this.inchesInput].forEach(input => {
@@ -60,6 +67,113 @@ class BMICalculator {
         this.validateInputs();
     }
     
+    resetInputs() {
+        // Reset all inputs to 0 on page load/refresh
+        this.weightInput.value = '0';
+        this.heightInput.value = '0';
+        this.inchesInput.value = '0';
+        
+        // Clear any existing errors
+        this.clearError();
+        this.clearInputErrors();
+        
+        // Disable calculate button initially
+        this.calculateBtn.disabled = true;
+    }
+    
+    preventNegativeInput(e) {
+        // Prevent minus sign (-) from being typed
+        if (e.key === '-' || e.key === 'Minus') {
+            e.preventDefault();
+            this.showInstantError('Please enter positive numbers only');
+            return false;
+        }
+        
+        // Prevent multiple decimal points
+        if (e.key === '.' && e.target.value.includes('.')) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Allow only numbers, decimal point, backspace, delete, arrow keys, etc.
+        const allowedKeys = [
+            'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+            'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+            'Home', 'End', 'PageUp', 'PageDown'
+        ];
+        
+        if (allowedKeys.includes(e.key)) {
+            return true;
+        }
+        
+        // Allow numbers and decimal point
+        if (/^[0-9.]$/.test(e.key)) {
+            return true;
+        }
+        
+        // Prevent all other characters
+        e.preventDefault();
+        this.showInstantError('Please enter numbers only');
+        return false;
+    }
+    
+    handlePaste(e) {
+        // Allow the paste event to complete first
+        setTimeout(() => {
+            const value = e.target.value;
+            
+            // Check if pasted content contains negative sign or invalid characters
+            if (value.includes('-') || !/^[0-9.]*$/.test(value)) {
+                e.target.value = value.replace(/[^0-9.]/g, '');
+                this.showInstantError('Please enter positive numbers only');
+            }
+            
+            // Validate the input after paste
+            this.validateInputs();
+        }, 0);
+    }
+    
+    showInstantError(message) {
+        // Show error message that disappears quickly
+        const errorDiv = this.form.querySelector('.instant-error-message');
+        if (errorDiv) {
+            errorDiv.remove();
+        }
+        
+        const instantError = document.createElement('div');
+        instantError.className = 'instant-error-message';
+        instantError.textContent = message;
+        instantError.style.cssText = `
+            color: #cc0000;
+            background: #ffe6e6;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            margin-top: 0.5rem;
+            border: 1px solid #ffcccc;
+            font-size: 0.875rem;
+            animation: fadeIn 0.2s ease;
+            position: absolute;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        `;
+        
+        // Position the error message
+        const formRect = this.form.getBoundingClientRect();
+        instantError.style.left = '0';
+        instantError.style.top = '100%';
+        instantError.style.width = '100%';
+        
+        this.form.style.position = 'relative';
+        this.form.appendChild(instantError);
+        
+        // Remove error after 2 seconds
+        setTimeout(() => {
+            if (instantError.parentNode) {
+                instantError.remove();
+            }
+        }, 2000);
+    }
+    
     validateInputs() {
         const weight = parseFloat(this.weightInput.value);
         const height = parseFloat(this.heightInput.value);
@@ -72,10 +186,14 @@ class BMICalculator {
         this.clearInputErrors();
         
         // Weight validation
-        if (isNaN(weight) || weight <= 0) {
+        if (isNaN(weight) || weight < 0) {
             isValid = false;
             this.showInputError(this.weightInput, 'Weight must be a positive number');
             errorMessage = 'Weight must be a positive number';
+        } else if (weight === 0) {
+            isValid = false;
+            this.showInputError(this.weightInput, 'Please enter your weight');
+            errorMessage = 'Please enter your weight';
         } else if (weight > 1000) {
             isValid = false;
             this.showInputError(this.weightInput, 'Weight cannot exceed 1000 kg/lbs');
@@ -84,10 +202,14 @@ class BMICalculator {
         
         // Height validation
         if (this.heightUnit.value === 'cm') {
-            if (isNaN(height) || height <= 0) {
+            if (isNaN(height) || height < 0) {
                 isValid = false;
                 this.showInputError(this.heightInput, 'Height must be a positive number');
                 errorMessage = 'Height must be a positive number';
+            } else if (height === 0) {
+                isValid = false;
+                this.showInputError(this.heightInput, 'Please enter your height');
+                errorMessage = 'Please enter your height';
             } else if (height < 50) {
                 isValid = false;
                 this.showInputError(this.heightInput, 'Height must be at least 50 cm');
@@ -98,10 +220,14 @@ class BMICalculator {
                 errorMessage = 'Height cannot exceed 300 cm';
             }
         } else {
-            if (isNaN(height) || height <= 0) {
+            if (isNaN(height) || height < 0) {
                 isValid = false;
                 this.showInputError(this.heightInput, 'Height must be a positive number');
                 errorMessage = 'Height must be a positive number';
+            } else if (height === 0) {
+                isValid = false;
+                this.showInputError(this.heightInput, 'Please enter your height');
+                errorMessage = 'Please enter your height';
             } else if (height < 1 || height > 10) {
                 isValid = false;
                 this.showInputError(this.heightInput, 'Height must be between 1 and 10 feet');
